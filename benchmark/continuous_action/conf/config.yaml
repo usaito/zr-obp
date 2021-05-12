@@ -1,0 +1,10 @@
+defaults:
+  - policy_hyperparams: default
+  - q_func_hyperparams: default
+  - setting: default
+hydra:
+  run:
+    dir: ./logs/${setting.experiment}/${hydra.job.override_dirname} # ${now:%Y-%m-%d}/
+  sweep:
+    dir: ./logs/${setting.experiment}/${hydra.job.override_dirname}
+    subdir: ./
