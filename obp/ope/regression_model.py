@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, clone, is_classifier
 from sklearn.model_selection import KFold
 
-from ..utils import check_bandit_feedback_inputs
+from ..utils import check_bandit_feedback_inputs, check_continuous_bandit_feedback_inputs
 
 
 @dataclass
@@ -381,3 +381,197 @@ class RegressionModel(BaseEstimator):
 
         """
         return np.c_[context, action_context[action]]
+
+
+@dataclass
+class RegressionModelForContinuousAction(BaseEstimator):
+    """Machine learning model to estimate the mean reward function (:math:`q(x,a):= \\mathbb{E}[r|x,a]`).
+
+    Note
+    -------
+    Reward (or outcome) :math:`r` must be either binary or continuous.
+
+    Parameters
+    ------------
+    base_model: BaseEstimator
+        A machine learning model used to estimate the mean reward function.
+
+    """
+
+    base_model: BaseEstimator
+
+    def __post_init__(self) -> None:
+        """Initialize Class."""
+        if not isinstance(self.base_model, BaseEstimator):
+            raise ValueError(
+                "base_model must be BaseEstimator or a child class of BaseEstimator"
+            )
+
+    def fit(
+        self,
+        context: np.ndarray,
+        action_by_behavior_policy: np.ndarray,
+        reward: np.ndarray,
+    ) -> None:
+        """Fit the regression model on given logged bandit feedback data.
+
+        Parameters
+        ----------
+        context: array-like, shape (n_rounds, dim_context)
+            Context vectors in each round, i.e., :math:`x_t`.
+
+        action_by_behavior_policy: array-like, shape (n_rounds,)
+            Continuous action values sampled by a behavior policy in each round of the logged bandit feedback, i.e., :math:`a_t`.
+
+        reward: array-like, shape (n_rounds,)
+            Reward observed in each round of the logged bandit feedback, i.e., :math:`r_t`.
+
+        """
+        check_continuous_bandit_feedback_inputs(
+            context=context,
+            action_by_behavior_policy=action_by_behavior_policy,
+            reward=reward,
+        )
+        X = self._pre_process_for_reg_model(
+            context=context,
+            action=action_by_behavior_policy,
+        )
+        self.base_model.fit(X, reward)
+
+    def predict(self, context: np.ndarray, action: np.ndarray) -> np.ndarray:
+        """Predict the mean reward function.
+
+        Parameters
+        -----------
+        context: array-like, shape (n_rounds_of_new_data, dim_context)
+            Context vectors for new data.
+
+        action: array-like, shape (n_rounds_of_new_data,)
+            Continuous action values sampled by behavior policy or given by evaluation policy.
+
+        Returns
+        -----------
+        estimated_rewards_by_reg_model: array-like, shape (n_rounds_of_new_data,)
+            Estimated expected rewards for new data by the regression model.
+
+        """
+        X = self._pre_process_for_reg_model(context=context, action=action)
+        estimated_rewards_by_reg_model = (
+            self.base_model.predict_proba(X)
+            if is_classifier(self.base_model)
+            else self.base_model.predict(X)
+        )
+        return estimated_rewards_by_reg_model
+
+    def fit_predict(
+        self,
+        context: np.ndarray,
+        action_by_behavior_policy: np.ndarray,
+        reward: np.ndarray,
+        action_by_evaluation_policy: Optional[np.ndarray] = None,
+        n_folds: int = 1,
+        random_state: Optional[int] = None,
+    ) -> np.ndarray:
+        """Fit the regression model on given logged bandit feedback data and predict the reward function of the same data.
+
+        Note
+        ------
+        When `n_folds` is larger than 1, then the cross-fitting procedure is applied.
+        See the reference for the details about the cross-fitting technique.
+
+        Parameters
+        ----------
+        context: array-like, shape (n_rounds, dim_context)
+            Context vectors in each round, i.e., :math:`x_t`.
+
+        action_by_behavior_policy: array-like or Tensor, shape (n_rounds,)
+            Continuous action values sampled by a behavior policy in each round of the logged bandit feedback, i.e., :math:`a_t`.
+
+        reward: array-like, shape (n_rounds,)
+            Observed rewards (or outcome) in each round, i.e., :math:`r_t`.
+
+        action_by_evaluation_policy: array-like or Tensor, shape (n_rounds,)
+            Continuous action values given by the evaluation policy (can be deterministic), i.e., :math:`\\pi_e(x_t)`.
+
+        n_folds: int, default=1
+            Number of folds in the cross-fitting procedure.
+            When 1 is given, the regression model is trained on the whole logged bandit feedback data.
+            Please refer to https://arxiv.org/abs/2002.08536 about the details of the cross-fitting procedure.
+
+        random_state: int, default=None
+            `random_state` affects the ordering of the indices, which controls the randomness of each fold.
+            See https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html for the details.
+
+        Returns
+        -----------
+        estimated_rewards_by_reg_model: array-like, shape (n_rounds, n_actions, len_list)
+            Estimated expected rewards for new data by the regression model.
+
+        """
+        check_continuous_bandit_feedback_inputs(
+            context=context,
+            action_by_behavior_policy=action_by_behavior_policy,
+            reward=reward,
+        )
+
+        if not (isinstance(n_folds, int) and n_folds > 0):
+            raise ValueError(
+                f"n_folds must be a positive integer, but {n_folds} is given"
+            )
+
+        if random_state is not None and not isinstance(random_state, int):
+            raise ValueError(
+                f"random_state must be an integer, but {random_state} is given"
+            )
+
+        if n_folds == 1:
+            self.fit(
+                context=context,
+                action_by_behavior_policy=action_by_behavior_policy,
+                reward=reward,
+            )
+            return self.predict(
+                context=context,
+                action=action_by_behavior_policy
+                if action_by_evaluation_policy is None
+                else action_by_evaluation_policy,
+            )
+        estimated_rewards_by_reg_model = np.zeros(reward.shape[0])
+        kf = KFold(n_splits=n_folds, shuffle=True, random_state=random_state)
+        kf.get_n_splits(context)
+        for train_idx, test_idx in kf.split(context):
+            self.fit(
+                context=context[train_idx],
+                action_by_behavior_policy=action_by_behavior_policy[train_idx],
+                reward=reward[train_idx],
+            )
+            estimated_rewards_by_reg_model[test_idx] = self.predict(
+                context=context[test_idx],
+                action=action_by_behavior_policy[test_idx]
+                if action_by_evaluation_policy is None
+                else action_by_evaluation_policy[test_idx],
+            )
+        return estimated_rewards_by_reg_model
+
+    def _pre_process_for_reg_model(
+        self,
+        context: np.ndarray,
+        action: np.ndarray,
+    ) -> np.ndarray:
+        """Preprocess feature vectors to train a give regression model.
+
+        Note
+        -----
+        Please override this method if you want to use another feature enginnering
+        for training the regression model.
+
+        Parameters
+        -----------
+        context: array-like, shape (n_rounds,)
+            Context vectors in the training logged bandit feedback.
+
+        action: array-like, shape (n_rounds,)
+            Continuous action values sampled by behavior policy or given by evaluation policy.
+
+        """
+        return np.c_[context, action[:, np.newaxis]]
