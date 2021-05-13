@@ -1,8 +1,7 @@
-# Bandwidth
 from pathlib import Path
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
@@ -41,15 +40,21 @@ def sample_hyperparameters(
     random_: np.random.RandomState,
 ) -> dict:
     hyperparams_dict_ = dict()
+    small_value_choice_set = np.array([1.0, 2.5, 5.0, 7.5] * 4) * (
+        (np.ones(16) * 10) ** (-np.repeat([2, 3, 4, 5], 4))
+    )
     if experiment == "bandwidth":
-        bandwidth = 0.1 ** random_.uniform(0, 3)
+        bandwidth = random_.choice(
+            np.array([1.0, 2.5, 5.0, 7.5] * 4)
+            * ((np.ones(16) * 10) ** (-np.repeat([1, 2, 3, 4], 4)))
+        )
         policy_hyperparams_["bandwidth"] = bandwidth
         hyperparams_dict_["bandwidth"] = bandwidth
 
     elif "architecture" in experiment:
         num_layers = random_.randint(1, 5)
         num_neurons = 10 * random_.randint(1, 50)
-        alpha = random_.choice(1e-6 * np.arange(0, 10001, 50))
+        alpha = random_.choice(small_value_choice_set)
         activation = random_.choice(["logistic", "tanh", "relu"])
         if experiment == "policy_architecture":
             policy_hyperparams_["hidden_layer_size"] = (num_neurons,) * num_layers
@@ -70,7 +75,7 @@ def sample_hyperparameters(
 
     elif "optimizer" in experiment:
         batch_size = int(2 ** random_.randint(4, 10))
-        learning_rate_init = random_.choice(1e-6 * np.arange(0, 10001, 50))
+        learning_rate_init = random_.choice(small_value_choice_set)
         max_iter = int(random_.choice([100, 200, 500, 1000, 2000]))
         solver = random_.choice(["sgd", "adam"])
         if experiment == "policy_optimizer":

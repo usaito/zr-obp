@@ -4,11 +4,11 @@ n_runs: 10
 n_rounds_train: 1000
 n_rounds_test: 100000
 dim_context: 5
-reward_function: linear
+reward_function: quadratic
 behavior_policy_function: linear
-reward_noise: 10
-action_noise: 10
-min_action: 0.0
+reward_noise: 4
+action_noise: 4
+min_action: -10.0
 max_action: 10.0
-n_jobs: 1
+n_jobs: 12
 random_state: 12345
