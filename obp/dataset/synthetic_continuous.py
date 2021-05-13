@@ -144,7 +144,7 @@ class SyntheticContinuousBanditDataset(BaseBanditDataset):
                 loc=min_action,
                 scale=(max_action - min_action),
                 size=n_rounds,
-                radom_state=self.random_state,
+                random_state=self.random_state,
             )
             pscore = uniform.pdf(
                 action, loc=min_action, scale=(max_action - min_action)

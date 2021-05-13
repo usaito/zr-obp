@@ -13,7 +13,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-# from .base import BaseOfflinePolicyLearner
 from ..utils import check_continuous_bandit_feedback_inputs
 
 
