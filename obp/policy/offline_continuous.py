@@ -314,6 +314,8 @@ class NNPolicyLearnerForContinuousAction:
             activation_layer = nn.Tanh
         elif self.activation == "relu":
             activation_layer = nn.ReLU
+        elif self.activation == "elu":
+            activation_layer = nn.ELU
         else:
             raise ValueError(
                 f"activation must be one of 'identity', 'logistic', 'tanh', or 'relu', but {self.activation} is given"
