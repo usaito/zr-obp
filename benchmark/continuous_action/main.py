@@ -15,17 +15,15 @@ from obp.dataset import (
     SyntheticContinuousBanditDataset,
     linear_reward_funcion_continuous,
     quadratic_reward_funcion_continuous,
-    pricing_reward_funcion_continuous,
     linear_behavior_policy_funcion_continuous,
 )
 from obp.policy import NNPolicyLearnerForContinuousAction
 
-pg_methods = ["dpg", "ipw", "dr-d"]
+pg_methods = ["dpg", "ipw", "dr-d", "dr-k"]
 
 reward_function_dict = dict(
     linear=linear_reward_funcion_continuous,
     quadratic=quadratic_reward_funcion_continuous,
-    pricing=pricing_reward_funcion_continuous,
 )
 
 behavior_policy_function_dict = dict(
@@ -40,22 +38,16 @@ def sample_hyperparameters(
     random_: np.random.RandomState,
 ) -> dict:
     hyperparams_dict_ = dict()
-    small_value_choice_set = np.array([1.0, 2.5, 5.0, 7.5] * 4) * (
-        (np.ones(16) * 10) ** (-np.repeat([2, 3, 4, 5], 4))
-    )
     if experiment == "bandwidth":
-        bandwidth = random_.choice(
-            np.array([1.0, 2.5, 5.0, 7.5] * 4)
-            * ((np.ones(16) * 10) ** (-np.repeat([1, 2, 3, 4], 4)))
-        )
+        bandwidth = random_.choice([1e-4, 5e-4, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5])
         policy_hyperparams_["bandwidth"] = bandwidth
         hyperparams_dict_["bandwidth"] = bandwidth
 
     elif "architecture" in experiment:
         num_layers = random_.randint(1, 5)
-        num_neurons = 10 * random_.randint(1, 50)
-        alpha = random_.choice(small_value_choice_set)
-        activation = random_.choice(["logistic", "tanh", "relu"])
+        num_neurons = int(random_.choice([10, 50, 100, 200, 500, 100]))
+        alpha = random_.choice([1e-5, 5e-5, 1e-4, 5e-4, 0.001, 0.005, 0.01])
+        activation = random_.choice(["logistic", "tanh", "relu", "elu"])
         if experiment == "policy_architecture":
             policy_hyperparams_["hidden_layer_size"] = (num_neurons,) * num_layers
             policy_hyperparams_["activation"] = activation
@@ -74,9 +66,9 @@ def sample_hyperparameters(
         hyperparams_dict_["alpha"] = alpha.round(6)
 
     elif "optimizer" in experiment:
-        batch_size = int(2 ** random_.randint(4, 10))
-        learning_rate_init = random_.choice(small_value_choice_set)
-        max_iter = int(random_.choice([100, 200, 500, 1000, 2000]))
+        batch_size = int(2 ** random_.randint(5, 9))
+        learning_rate_init = random_.choice([1e-5, 5e-5, 1e-4, 5e-4, 0.001, 0.005, 0.01])
+        max_iter = int(random_.choice([50, 100, 200, 500, 1000]))
         solver = random_.choice(["sgd", "adam"])
         if experiment == "policy_optimizer":
             policy_hyperparams_["batch_size"] = batch_size
@@ -102,11 +94,16 @@ def sample_hyperparameters(
 
 def save_outputs(policy_value_dict: dict, hyperparameters_dict: dict) -> None:
     log_path = Path("./outputs")
-    log_path.mkdir(exist_ok=True, parents=True)
+    (log_path / "plots").mkdir(exist_ok=True, parents=True)
+    (log_path / "results").mkdir(exist_ok=True, parents=True)
 
     policy_value_df = DataFrame(policy_value_dict)
-    policy_value_df.to_csv(log_path / "policy_value_df.csv")
-    policy_value_df.describe().round(6).to_csv(log_path / "policy_value_summary_df.csv")
+    policy_value_df.to_csv(log_path / "results" / "policy_value_df.csv")
+    policy_value_df.describe().round(6).to_csv(
+        log_path / "results" / "policy_value_summary_df.csv"
+    )
+
+    sampled_hyperparams_df_dict = dict()
     sampled_hyperparams_df = DataFrame(hyperparameters_dict)
     for pg_method in pg_methods:
         sampled_hyperparams_df_ordered_by_policy_value = sampled_hyperparams_df.loc[
@@ -119,34 +116,55 @@ def save_outputs(policy_value_dict: dict, hyperparameters_dict: dict) -> None:
             drop=True, inplace=True
         )
         sampled_hyperparams_df_ordered_by_policy_value.to_csv(
-            log_path / f"{pg_method}_sampled_hyperparameters_df.csv"
+            log_path / "results" / f"{pg_method}_sampled_hyperparameters_df.csv"
         )
+        sampled_hyperparams_df_dict[
+            pg_method
+        ] = sampled_hyperparams_df_ordered_by_policy_value
 
+    # plot empirical cdf
     font_size = 16
-    fig_width = 10
+    fig_width = 12
     fig_height = 8
-    xmax = 6.0
-    policy_value_df = pd.read_csv(log_path / "policy_value_df.csv", index_col=0)
+    xmax = 15.0
+    plt.clf()
+    plt.style.use("ggplot")
+    plt.rcParams.update({"font.size": font_size})
+    _, ax = plt.subplots(figsize=(fig_width, fig_height))
     for pg_method in pg_methods:
-        plt.clf()
-        plt.style.use("ggplot")
-        plt.rcParams.update({"font.size": font_size})
-        _, ax = plt.subplots(figsize=(fig_width, fig_height))
-        for pg_method in pg_methods:
-            sns.ecdfplot(
-                policy_value_df[pg_method],
-                ax=ax,
-                label=pg_method,
-                linewidth=3.5,
-                alpha=0.7,
-                complementary=True,
+        sns.ecdfplot(
+            policy_value_df[pg_method],
+            ax=ax,
+            label=pg_method,
+            linewidth=3.5,
+            alpha=0.7,
+            complementary=True,
+        )
+    plt.legend(loc="upper right", fontsize=24)
+    plt.xlabel("Policy Value")
+    plt.ylabel("1 - CDF(Policy Value)")
+    plt.xlim(0, xmax)
+    plt.ylim(0, 1.1)
+    plt.savefig(log_path / "plots" / "cdf.png", dpi=100)
+
+    # plot barplot per pg_method x hyperparam
+    for pg_method in pg_methods:
+        sampled_hyperparams_df = sampled_hyperparams_df_dict[pg_method]
+        hyperparam_names = sampled_hyperparams_df.columns.to_list()
+        hyperparam_names.remove("policy_value")
+        (log_path / "plots" / pg_method).mkdir(exist_ok=True, parents=True)
+        for hyperparam in hyperparam_names:
+            plt.clf()
+            plt.style.use("ggplot")
+            plt.rcParams.update({"font.size": font_size})
+            _, ax = plt.subplots(figsize=(fig_width, fig_height))
+            sns.barplot(
+                x=sampled_hyperparams_df[hyperparam],
+                y=sampled_hyperparams_df["policy_value"],
             )
-        plt.legend(loc="upper right", fontsize=24)
-        plt.xlabel("Policy Value")
-        plt.ylabel("1 - CDF(Policy Value)")
-        plt.xlim(0, xmax)
-        plt.ylim(0, 1.1)
-        plt.savefig(log_path / "cdf.png", dpi=100)
+            plt.xlabel(hyperparam)
+            plt.ylabel("Policy Value")
+            plt.savefig(log_path / "plots" / pg_method / f"{hyperparam}.png", dpi=100)
 
 
 @hydra.main(config_path="./conf", config_name="config")
