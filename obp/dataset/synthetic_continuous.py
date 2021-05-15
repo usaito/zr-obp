@@ -283,46 +283,6 @@ def quadratic_reward_funcion_continuous(
     return expected_reward
 
 
-def pricing_reward_funcion_continuous(
-    context: np.ndarray,
-    action: np.ndarray,
-    random_state: Optional[int] = None,
-) -> np.ndarray:
-    """Reward function imitating the personalized pricing problem to generate synthetic continuous bandit datasets.
-
-    Parameters
-    -----------
-    context: array-like, shape (n_rounds, dim_context)
-        Context vectors characterizing each round (such as user information).
-
-    action: array-like, shape (n_rounds,)
-        Continuous action values.
-
-    random_state: int, default=None
-        Controls the random seed in sampling parameters.
-
-    Returns
-    ---------
-    expected_reward: array-like, shape (n_rounds,)
-        Expected reward given context (:math:`x`) and continuous action (:math:`a`).
-        In this function, expected reward is the expected revenue given by a personalized pricing policy.
-
-    """
-    if not isinstance(context, np.ndarray) or context.ndim != 2:
-        raise ValueError("context must be 2-dimensional ndarray")
-    if not isinstance(action, np.ndarray):
-        raise ValueError("action must be ndarray")
-
-    random_ = check_random_state(random_state)
-    coef_1 = random_.normal(size=context.shape[1])
-    coef_2 = random_.normal(size=context.shape[1])
-
-    expected_reward = context @ coef_1
-    expected_reward -= (context @ coef_2) * action
-    expected_reward *= action
-    return expected_reward
-
-
 def linear_behavior_policy_funcion_continuous(
     context: np.ndarray,
     random_state: Optional[int] = None,
