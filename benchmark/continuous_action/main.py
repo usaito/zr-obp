@@ -160,6 +160,7 @@ def save_outputs(
         (log_path / "plots" / pg_method).mkdir(exist_ok=True, parents=True)
         for hyperparam in hyperparam_names:
             plt.clf()
+            plt.close()
             plt.style.use("ggplot")
             plt.rcParams.update({"font.size": font_size})
             # bar plot
