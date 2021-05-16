@@ -45,13 +45,11 @@ def sample_hyperparameters(
 
     elif "architecture" in experiment:
         num_layers = random_.randint(1, 5)
-        num_neurons = int(random_.choice([10, 50, 100, 200, 500, 100]))
-        alpha = random_.choice([1e-5, 5e-5, 1e-4, 5e-4, 0.001, 0.005, 0.01])
+        num_neurons = int(random_.choice([10, 50, 100, 200, 500]))
         activation = random_.choice(["logistic", "tanh", "relu", "elu"])
         if experiment == "policy_architecture":
             policy_hyperparams_["hidden_layer_size"] = (num_neurons,) * num_layers
             policy_hyperparams_["activation"] = activation
-            policy_hyperparams_["alpha"] = alpha
         elif experiment == "q_func_architecture":
             policy_hyperparams_["q_func_estimator_hyperparams"]["hidden_layer_size"] = (
                 num_neurons,
@@ -63,18 +61,21 @@ def sample_hyperparameters(
         hyperparams_dict_["num_layers"] = num_layers
         hyperparams_dict_["num_neurons"] = num_neurons
         hyperparams_dict_["activation"] = activation
-        hyperparams_dict_["alpha"] = alpha.round(6)
 
     elif "optimizer" in experiment:
         batch_size = int(2 ** random_.randint(5, 9))
-        learning_rate_init = random_.choice([1e-5, 5e-5, 1e-4, 5e-4, 0.001, 0.005, 0.01])
+        learning_rate_init = random_.choice(
+            [1e-5, 5e-5, 1e-4, 5e-4, 0.001, 0.005, 0.01]
+        )
         max_iter = int(random_.choice([50, 100, 200, 500, 1000]))
+        alpha = random_.choice([1e-5, 5e-5, 1e-4, 5e-4, 0.001, 0.005, 0.01])
         solver = random_.choice(["sgd", "adam"])
         if experiment == "policy_optimizer":
             policy_hyperparams_["batch_size"] = batch_size
             policy_hyperparams_["learning_rate_init"] = learning_rate_init
             policy_hyperparams_["max_iter"] = max_iter
             policy_hyperparams_["solver"] = solver
+            policy_hyperparams_["alpha"] = alpha
         elif experiment == "q_func_optimizer":
             policy_hyperparams_["q_func_estimator_hyperparams"][
                 "batch_size"
@@ -84,15 +85,19 @@ def sample_hyperparameters(
             ] = learning_rate_init
             policy_hyperparams_["q_func_estimator_hyperparams"]["max_iter"] = max_iter
             policy_hyperparams_["q_func_estimator_hyperparams"]["solver"] = solver
+            policy_hyperparams_["q_func_estimator_hyperparams"]["alpha"] = alpha
         hyperparams_dict_["batch_size"] = batch_size
         hyperparams_dict_["learning_rate_init"] = learning_rate_init.round(6)
         hyperparams_dict_["max_iter"] = max_iter
         hyperparams_dict_["solver"] = solver
+        hyperparams_dict_["alpha"] = alpha.round(6)
 
     return policy_hyperparams_, hyperparams_dict_
 
 
-def save_outputs(policy_value_dict: dict, hyperparameters_dict: dict) -> None:
+def save_outputs(
+    policy_value_dict: dict, hyperparameters_dict: dict, reward_function: str = "linear"
+) -> None:
     log_path = Path("./outputs")
     (log_path / "plots").mkdir(exist_ok=True, parents=True)
     (log_path / "results").mkdir(exist_ok=True, parents=True)
@@ -126,7 +131,7 @@ def save_outputs(policy_value_dict: dict, hyperparameters_dict: dict) -> None:
     font_size = 16
     fig_width = 12
     fig_height = 8
-    xmax = 15.0
+    xmax = 15.0 if reward_function == "quadratic" else 4.0
     plt.clf()
     plt.style.use("ggplot")
     plt.rcParams.update({"font.size": font_size})
@@ -157,6 +162,7 @@ def save_outputs(policy_value_dict: dict, hyperparameters_dict: dict) -> None:
             plt.clf()
             plt.style.use("ggplot")
             plt.rcParams.update({"font.size": font_size})
+            # bar plot
             _, ax = plt.subplots(figsize=(fig_width, fig_height))
             sns.barplot(
                 x=sampled_hyperparams_df[hyperparam],
@@ -164,7 +170,21 @@ def save_outputs(policy_value_dict: dict, hyperparameters_dict: dict) -> None:
             )
             plt.xlabel(hyperparam)
             plt.ylabel("Policy Value")
-            plt.savefig(log_path / "plots" / pg_method / f"{hyperparam}.png", dpi=100)
+            plt.savefig(
+                log_path / "plots" / pg_method / f"{hyperparam}_bar.png", dpi=100
+            )
+            # box plot
+            _, ax = plt.subplots(figsize=(fig_width, fig_height))
+            sns.boxplot(
+                x=sampled_hyperparams_df[hyperparam],
+                y=sampled_hyperparams_df["policy_value"],
+                sym="",
+            )
+            plt.xlabel(hyperparam)
+            plt.ylabel("Policy Value")
+            plt.savefig(
+                log_path / "plots" / pg_method / f"{hyperparam}_box.png", dpi=100
+            )
 
 
 @hydra.main(config_path="./conf", config_name="config")
@@ -183,10 +203,22 @@ def main(cfg: DictConfig) -> None:
     max_action = cfg.setting.max_action
     n_jobs = cfg.setting.n_jobs
     sampled_hyperparameters = dict(
-        policy_optimizer=["solver", "learning_rate_init", "max_iter", "batch_size"],
-        q_func_optimizer=["solver", "learning_rate_init", "max_iter", "batch_size"],
-        policy_architecture=["num_layers", "num_neurons", "activation", "alpha"],
-        q_func_architecture=["num_layers", "num_neurons", "activation", "alpha"],
+        policy_optimizer=[
+            "solver",
+            "learning_rate_init",
+            "max_iter",
+            "batch_size",
+            "alpha",
+        ],
+        q_func_optimizer=[
+            "solver",
+            "learning_rate_init",
+            "max_iter",
+            "batch_size",
+            "alpha",
+        ],
+        policy_architecture=["num_layers", "num_neurons", "activation"],
+        q_func_architecture=["num_layers", "num_neurons", "activation"],
         bandwidth=["bandwidth"],
     )
 
