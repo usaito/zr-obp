@@ -57,7 +57,6 @@ def sample_hyperparameters(
             policy_hyperparams_["q_func_estimator_hyperparams"][
                 "activation"
             ] = activation
-            policy_hyperparams_["q_func_estimator_hyperparams"]["alpha"] = alpha
         hyperparams_dict_["num_layers"] = num_layers
         hyperparams_dict_["num_neurons"] = num_neurons
         hyperparams_dict_["activation"] = activation
@@ -159,12 +158,12 @@ def save_outputs(
         hyperparam_names.remove("policy_value")
         (log_path / "plots" / pg_method).mkdir(exist_ok=True, parents=True)
         for hyperparam in hyperparam_names:
-            plt.clf()
-            plt.close()
             plt.style.use("ggplot")
-            plt.rcParams.update({"font.size": font_size})
+            plt.rcParams.update(
+                {"font.size": font_size, "figure.max_open_warning": 100}
+            )
             # bar plot
-            _, ax = plt.subplots(figsize=(fig_width, fig_height))
+            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             sns.barplot(
                 x=sampled_hyperparams_df[hyperparam],
                 y=sampled_hyperparams_df["policy_value"],
@@ -175,7 +174,7 @@ def save_outputs(
                 log_path / "plots" / pg_method / f"{hyperparam}_bar.png", dpi=100
             )
             # box plot
-            _, ax = plt.subplots(figsize=(fig_width, fig_height))
+            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             sns.boxplot(
                 x=sampled_hyperparams_df[hyperparam],
                 y=sampled_hyperparams_df["policy_value"],
@@ -186,6 +185,8 @@ def save_outputs(
             plt.savefig(
                 log_path / "plots" / pg_method / f"{hyperparam}_box.png", dpi=100
             )
+            plt.clf()
+            plt.close(fig)
 
 
 @hydra.main(config_path="./conf", config_name="config")
