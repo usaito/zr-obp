@@ -632,9 +632,9 @@ class NNPolicyLearnerForContinuousAction:
 
         elif self.pg_method == "dr-k":
 
-            def kernel_q_hat(mq_sample: int, a_min: float, a_max: float) -> float:
+            def kernel_q_hat(a_min: float, a_max: float, num_mq_samples: int=20) -> float:
                 # sample actions from uniform distribution
-                a_samples = self.random_.uniform(a_min, a_max, size=mq_sample)
+                a_samples = self.random_.uniform(a_min, a_max, size=num_mq_samples)
                 kernel_estimated_rewards = 0
                 for a in a_samples:
                     u = action_by_current_policy - a
@@ -658,7 +658,6 @@ class NNPolicyLearnerForContinuousAction:
             policy_loss = gaussian_kernel(u) * (reward - q_hat) / pscore
             policy_loss /= self.bandwidth
             policy_loss += kernel_q_hat(
-                mq_sample=10,
                 a_min=action_by_behavior_policy.min(),
                 a_max=action_by_behavior_policy.max(),
             )
@@ -982,7 +981,7 @@ class QFuncEstimatorForContinuousAction:
 
         self.nn_model = nn.Sequential(OrderedDict(layer_list))
 
-    def _create_train_data_for_opl(
+    def _create_train_data_for_q_func_estimation(
         self,
         context: np.ndarray,
         action_by_behavior_policy: np.ndarray,
@@ -1110,7 +1109,7 @@ class QFuncEstimatorForContinuousAction:
         else:
             raise NotImplementedError("solver must be one of 'adam', 'lbfgs', or 'sgd'")
 
-        training_data_loader, validation_data_loader = self._create_train_data_for_opl(
+        training_data_loader, validation_data_loader = self._create_train_data_for_q_func_estimation(
             context,
             action_by_behavior_policy,
             reward,
