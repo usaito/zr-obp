@@ -13,7 +13,7 @@ In the following, we evaluate the performances of
 
 these off-policy policy gradient methods are summarized in [[Kallus and Uehara 2020](https://papers.nips.cc/paper/2020/hash/75df63609809c7a2052fdffe5c00a84e-Abstract.html)] and implemented in [zr-obp/obp/policy/offline_continuous.py](https://github.com/usaito/zr-obp/blob/continuous/obp/dataset/synthetic_continuous.py).
 
-## Requirements
+## Requirements and Setup
 
 - hydra-core==1.0.6
 - matplotlib==3.4.2
@@ -26,7 +26,26 @@ these off-policy policy gradient methods are summarized in [[Kallus and Uehara 2
 - scipy==1.6.3
 - torch==1.8.1
 - tqdm==4.60.0
-- zr-obp==0.4.0
+
+
+To set up the experimental environment, please follow the procedure below.
+
+```bash
+# clone the folked directory of zr-obp that contains implementations for the continuous action setting
+git clone git@github.com:usaito/zr-obp.git
+
+# set up the implementation
+cd zr-obp
+python setup.py install
+
+# move to the project directory
+cd benchmark/continuous_action
+
+# run the experiments
+python main.py ...
+```
+
+How to specify the experimental settings are described below.
 
 ## Files
 
