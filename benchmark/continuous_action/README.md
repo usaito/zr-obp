@@ -51,13 +51,39 @@ python main.py\
 - `$n_runs` specifies the number of simulation runs in the experiment. In the final project, `n_runs=500`.
 - `$n_rounds_train` specifies the number of samples in the training set of synthetic bandit data. In the final project, `n_runs=1000`.
 - `$reward_function` specifies the true reward model, and must be either `linear` or `quadratic`. In the final project, both cases were tested.
-- `$experiment` specifies the experimental group, and must be one of `policy_optimizer`, `policy_architecture`, `bandwidth`, `q_func_optimizer`, `q_func_architecture`, and `cross-fitting`.
+- `$experiment` specifies the experimental group, and must be one of `policy_optimizer`, `policy_architecture`, `bandwidth`, `q_func_optimizer`, and `q_func_architecture`.
 - `$n_jobs` is the maximum number of concurrently running jobs.
 
 Other experimental configurations that can be modified from the command line include `n_rounds_test`, `dim_context`, `behavior_policy_function`, `action_noise`, `reward_noise`, `min_action`, and `max_action`. Please see [`./conf/`](./conf/) to confirm the default experimental configurations that are to be used when they are not overridden.
 
-It is possible to run multiple experimental settings easily by using the `--multirun` option implemented in Hydra.
-For example, the following script sweeps over all simulations including the six experimental groups ('policy_architecture', 'policy_optimizer', 'bandwidth', 'q_func_architecture', 'q_func_optimizer', 'cross_fitting') and two reward functions.
+One can also modify the default hyperparameters to define the policy (\pi) and the q-function estimator (\hat{q}) by overriding the hyperparameters in the command line or by directly modifying the config files. The default hyperparameters are as follows.
+
+```yaml
+# ./conf/policy_hyperparams/default.yaml
+bandwidth: 0.1
+activation: tanh
+solver: sgd
+alpha: 0.0001
+batch_size: 128
+learning_rate_init: 0.001
+max_iter: 200
+early_stopping: True
+```
+
+```yaml
+# ./conf/q_func_hyperparams/default.yaml
+activation: tanh
+solver: sgd
+alpha: 0.0001
+batch_size: 128
+learning_rate_init: 0.001
+max_iter: 200
+early_stopping: True
+```
+
+
+It is possible to run multiple experimental settings easily by using the `--multirun (-m)` option implemented in Hydra.
+For example, the following script sweeps over all simulations including the fix experimental groups ('policy_architecture', 'policy_optimizer', 'bandwidth', 'q_func_architecture', 'q_func_optimizer') and two reward functions.
 
 ```bash
 python main.py\
@@ -66,3 +92,5 @@ python main.py\
     setting.experiment=policy_architecture,policy_optimizer,bandwidth,q_func_architecture,q_func_optimizer,cross_fitting\
     --multirun
 ```
+
+After running the experiment as described above, the results (csv and png files) are stored in `./logs`.
