@@ -3,7 +3,6 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 import numpy as np
-import pandas as pd
 from pandas import DataFrame
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -316,6 +315,7 @@ def main(cfg: DictConfig) -> None:
     save_outputs(
         policy_value_dict=policy_value_dict,
         hyperparameters_dict=hyperparameters_dict,
+        reward_function=cfg.setting.reward_function,
     )
 
 
