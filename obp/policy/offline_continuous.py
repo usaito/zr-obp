@@ -632,7 +632,9 @@ class NNPolicyLearnerForContinuousAction:
 
         elif self.pg_method == "dr-k":
 
-            def kernel_q_hat(a_min: float, a_max: float, num_mq_samples: int=20) -> float:
+            def kernel_q_hat(
+                a_min: float, a_max: float, num_mq_samples: int = 20
+            ) -> float:
                 # sample actions from uniform distribution
                 a_samples = self.random_.uniform(a_min, a_max, size=num_mq_samples)
                 kernel_estimated_rewards = 0
@@ -1109,7 +1111,10 @@ class QFuncEstimatorForContinuousAction:
         else:
             raise NotImplementedError("solver must be one of 'adam', 'lbfgs', or 'sgd'")
 
-        training_data_loader, validation_data_loader = self._create_train_data_for_q_func_estimation(
+        (
+            training_data_loader,
+            validation_data_loader,
+        ) = self._create_train_data_for_q_func_estimation(
             context,
             action_by_behavior_policy,
             reward,
