@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 
 import hydra
 from omegaconf import DictConfig
@@ -17,8 +18,6 @@ from obp.dataset import (
     linear_behavior_policy_funcion_continuous,
 )
 from obp.policy import NNPolicyLearnerForContinuousAction
-
-pg_methods = ["dpg", "ipw", "dr-d", "dr-k"]
 
 reward_function_dict = dict(
     linear=linear_reward_funcion_continuous,
@@ -94,7 +93,10 @@ def sample_hyperparameters(
 
 
 def save_outputs(
-    policy_value_dict: dict, hyperparameters_dict: dict, reward_function: str = "linear"
+    pg_methods: List,
+    policy_value_dict: dict,
+    hyperparameters_dict: dict,
+    reward_function: str = "linear",
 ) -> None:
     log_path = Path("./outputs")
     (log_path / "plots").mkdir(exist_ok=True, parents=True)
@@ -203,6 +205,7 @@ def main(cfg: DictConfig) -> None:
     min_action = cfg.setting.min_action
     max_action = cfg.setting.max_action
     n_jobs = cfg.setting.n_jobs
+    pg_methods = cfg.setting.pg_methods
     sampled_hyperparameters = dict(
         policy_optimizer=[
             "solver",
@@ -313,6 +316,7 @@ def main(cfg: DictConfig) -> None:
             hyperparameters_dict[hyperparam_][i] = value_
 
     save_outputs(
+        pg_methods=pg_methods,
         policy_value_dict=policy_value_dict,
         hyperparameters_dict=hyperparameters_dict,
         reward_function=cfg.setting.reward_function,
